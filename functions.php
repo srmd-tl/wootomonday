@@ -1,10 +1,17 @@
 <?php
 function status_change_cb($id, $status_transition_from, $status_transition_to, $that)
 {
-    $entryId = get_woo_order_entry_id($that);
+    if ($that->get_meta('_subscription_renewal')) {
+        $subscriptionId = $that->get_meta('_subscription_renewal');
+        $subscription = wc_get_order($subscriptionId);
+        $parentOrder = wc_get_order($subscription->get_data()['parent_id']);
+        $entryId = get_woo_order_entry_id($parentOrder);
+    } else {
+        $entryId = get_woo_order_entry_id($that);
+    }
     $mondayItemId = get_monday_record_id($entryId, $id);
     $orderData = getOrderDetails($entryId, $id);
-    $response = update_item_in_monday($mondayItemId, $orderData);
+    return  update_item_in_monday($mondayItemId, $orderData);
 }
 function getOrderDetails($entryId, $orderId)
 {
@@ -61,7 +68,10 @@ function pre_call_create_monday_task_on_new_order($order, $subscription)
     $parentId = @getParentId($order->get_id());
     $productName = current($order->get_items())->get_name();
     $mondayItemId = create_monday_task_on_new_order($parentId, false, ['type' => 'renewal', 'product_name' => $productName, 'order_id' => $order->get_id(), 'parent_id' => $parentId, 'group_id' => 'new_group94739', 'created_at' => $order->get_date_created()->date('Y-m-d'), 'status' => $order->get_status(), 'in_db' => false]);
-    save_monday_record_id($order->get_id(), $mondayItemId);
+    $parentOrder = wc_get_order($parentId);
+    $entryId = get_woo_order_entry_id($parentOrder);
+    save_monday_record_id($entryId, $order->get_id(), $mondayItemId);
+    return;
 
     // if ($productName == 'Monthly Promotion') {
     //     create_micro_monday_task_on_new_order([
@@ -135,7 +145,6 @@ function create_monday_task_on_new_order($order_id, $inDb = true, $optional = []
     if ($inDb) {
         save_monday_record_id($entryId, $order_id, $mondayResponse->data->create_item->id);
     }
-    die();
     return $mondayResponse->data->create_item->id;
 }
 function update_monday_task_on_order_status_change($order_id, $old_status, $new_status, $order)
@@ -264,6 +273,9 @@ function getOrderItem($order)
 // Function to save Monday.com record ID in the database
 function save_monday_record_id($entry_id, $order_id, $monday_record_id)
 {
+    echo $entry_id;
+    echo $order_id;
+    echo $monday_record_id;
     global $wpdb;
 
     $table_name = $wpdb->prefix . 'monday_records';
