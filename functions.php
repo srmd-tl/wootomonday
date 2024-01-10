@@ -2,7 +2,9 @@
 function status_change_cb($id, $status_transition_from, $status_transition_to, $that)
 {
     $entryId = get_woo_order_entry_id($that);
-    update_item_in_monday_cb(null, $entryId, null);
+    $mondayItemId = get_monday_record_id($entryId, $id);
+    $orderData = getOrderDetails($entryId, $id);
+    $response = update_item_in_monday($mondayItemId, $orderData);
 }
 function getOrderDetails($entryId, $orderId)
 {
@@ -45,7 +47,6 @@ function getOrderDetails($entryId, $orderId)
 
     );
 }
-
 function update_item_in_monday_cb($form, $entry_id, $original_entry)
 {
     $orderId = get_order_num($entry_id);
@@ -59,7 +60,8 @@ function pre_call_create_monday_task_on_new_order($order, $subscription)
     //   $parentId = $subscription->get_parent()->id;
     $parentId = @getParentId($order->get_id());
     $productName = current($order->get_items())->get_name();
-    create_monday_task_on_new_order($parentId, ['type' => 'renewal', 'product_name' => $productName, 'order_id' => $order->get_id(), 'parent_id' => $parentId, 'group_id' => 'new_group94739', 'created_at' => $order->get_date_created()->date('Y-m-d'), 'status' => $order->get_status()]);
+    $mondayItemId = create_monday_task_on_new_order($parentId, false, ['type' => 'renewal', 'product_name' => $productName, 'order_id' => $order->get_id(), 'parent_id' => $parentId, 'group_id' => 'new_group94739', 'created_at' => $order->get_date_created()->date('Y-m-d'), 'status' => $order->get_status(), 'in_db' => false]);
+    save_monday_record_id($order->get_id(), $mondayItemId);
 
     // if ($productName == 'Monthly Promotion') {
     //     create_micro_monday_task_on_new_order([
@@ -113,7 +115,7 @@ function create_micro_monday_task_on_new_order($orderDetail)
         return json_decode($response);
     }
 }
-function create_monday_task_on_new_order($order_id, $optional = [])
+function create_monday_task_on_new_order($order_id, $inDb = true, $optional = [])
 {
     // Retrieve order details
     $order = wc_get_order($order_id);
@@ -130,7 +132,11 @@ function create_monday_task_on_new_order($order_id, $optional = [])
     } catch (\Exception $e) {
         error_log(print_r($e->getMessage()));
     }
-    save_monday_record_id($entryId, $mondayResponse->data->create_item->id);
+    if ($inDb) {
+        save_monday_record_id($entryId, $order_id, $mondayResponse->data->create_item->id);
+    }
+    die();
+    return $mondayResponse->data->create_item->id;
 }
 function update_monday_task_on_order_status_change($order_id, $old_status, $new_status, $order)
 {
@@ -256,7 +262,7 @@ function getOrderItem($order)
     }
 }
 // Function to save Monday.com record ID in the database
-function save_monday_record_id($entry_id, $monday_record_id)
+function save_monday_record_id($entry_id, $order_id, $monday_record_id)
 {
     global $wpdb;
 
@@ -266,16 +272,18 @@ function save_monday_record_id($entry_id, $monday_record_id)
         $table_name,
         array(
             'entry_id' => $entry_id,
+            'order_id' => $order_id,
             'monday_record_id' => $monday_record_id
         ),
         array(
-            '%d',
+            '%s',
+            '%s',
             '%s'
         )
     );
 }
 // Function to retrieve Monday.com record ID from the database
-function get_monday_record_id($entry_id)
+function get_monday_record_id($entryId, $orderId)
 {
     global $wpdb;
 
@@ -283,14 +291,15 @@ function get_monday_record_id($entry_id)
 
     $result = $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT monday_record_id FROM $table_name WHERE entry_id = %d",
-            $entry_id
+            "SELECT monday_record_id FROM $table_name WHERE order_id = %s AND entry_id = %s",
+            $orderId,
+            $entryId
         )
     );
 
     return $result;
 }
-//get order number againt an entry id 
+//get order number againt an entry id from gf_entry_meta table
 function get_order_num($entryId)
 {
     global $wpdb;
