@@ -57,9 +57,11 @@ function getOrderDetails($entryId, $orderId)
 function update_item_in_monday_cb($form, $entry_id, $original_entry)
 {
     $orderId = get_order_num($entry_id);
-    $mondayItemId = get_monday_record_id($entry_id);
+    echo $orderId;
+    echo $entry_id;
+    $mondayItemId = get_monday_record_id($entry_id, $orderId);
     $orderData = getOrderDetails($entry_id, $orderId);
-    $response = update_item_in_monday($mondayItemId, $orderData);
+   return update_item_in_monday($mondayItemId, $orderData);
 }
 function pre_call_create_monday_task_on_new_order($order, $subscription)
 {
