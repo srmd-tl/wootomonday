@@ -9,9 +9,51 @@ function status_change_cb($id, $status_transition_from, $status_transition_to, $
     } else {
         $entryId = get_woo_order_entry_id($that);
     }
+    //Search monday entry id from DB
     $mondayItemId = get_monday_record_id($entryId, $id);
+    //Search from monday.com using GraphQL
+    if (!$mondayItemId) {
+        $mondayItemId = get_monday_record_id_from_graphql($id)->data->items_page_by_column_values->items[0]->id ?? null;
+    }
     $orderData = getOrderDetails($entryId, $id);
+    if (!$mondayItemId) {
+        return;
+    }
     return  update_item_in_monday($mondayItemId, $orderData);
+}
+//Get Monday.com record id by graphql ,if not saved in DB
+function get_monday_record_id_from_graphql($orderId)
+{
+
+    $curl = curl_init();
+
+    curl_setopt_array($curl, [
+        CURLOPT_URL => "https://api.monday.com/v2/",
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_ENCODING => "",
+        CURLOPT_MAXREDIRS => 10,
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+        CURLOPT_CUSTOMREQUEST => "POST",
+        CURLOPT_POSTFIELDS => "{\n\t\"query\": \"query { items_page_by_column_values (limit: 1 board_id: 1158941214, columns: [{column_id: \\\"name\\\", column_values: [\\\"" . $orderId . "\\\"]}]) { cursor items { id name column_values{text} }}}\"\n}",
+        CURLOPT_HTTPHEADER => [
+            "API-Version: 2023-10",
+            "Authorization: eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjMwMzk4ODU0MCwiYWFpIjoxMSwidWlkIjo1MTExNjAwMiwiaWFkIjoiMjAyMy0xMi0yMFQxMToyODoyNS43OTdaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6Nzg4ODgyOSwicmduIjoidXNlMSJ9.pC8ks0oxDJDykIGkb7s5-y6KyIKfcArV9PR2kytwTZ8",
+            "Content-Type: application/json",
+            "User-Agent: insomnia/8.1.0"
+        ],
+    ]);
+
+    $response = curl_exec($curl);
+    $err = curl_error($curl);
+
+    curl_close($curl);
+
+    if ($err) {
+        return null;
+    } else {
+        return json_decode($response);
+    }
 }
 function getOrderDetails($entryId, $orderId)
 {
@@ -369,7 +411,25 @@ function get_woo_order_entry_id($order)
         $metaData = $firstLineItem->get_meta_data();
 
         if (!is_array($metaData) || empty($metaData)) {
-            throw new Exception('Meta data not found or empty for the first line item');
+            $firstLineItem = end($lineItems);
+
+            if (!is_object($firstLineItem) || !method_exists($firstLineItem, 'get_meta_data')) {
+                throw new Exception('Invalid first line item object');
+            }
+
+            $metaData = $firstLineItem->get_meta_data();
+
+            if (!is_array($metaData) || empty($metaData)) {
+                throw new Exception('Meta data not found or empty for the first line item');
+            }
+
+            $metaValue = current($metaData);
+
+            if (!is_object($metaValue) || !method_exists($metaValue, 'get_data')) {
+                throw new Exception('Invalid meta value object');
+            }
+
+            return $metaValue->get_data()['value']['_gravity_form_linked_entry_id'] ?? null;
         }
 
         $metaValue = current($metaData);
