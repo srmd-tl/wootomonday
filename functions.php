@@ -102,20 +102,25 @@ function update_item_in_monday_cb($form, $entry_id, $original_entry)
     echo $orderId;
     echo $entry_id;
     $mondayItemId = get_monday_record_id($entry_id, $orderId);
+    //Search from monday.com using GraphQL
+    if (!$mondayItemId) {
+        $mondayItemId = get_monday_record_id_from_graphql($orderId)->data->items_page_by_column_values->items[0]->id ?? null;
+    }
     $orderData = getOrderDetails($entry_id, $orderId);
     return update_item_in_monday($mondayItemId, $orderData);
 }
-function pre_call_create_monday_task_on_new_order($order, $subscription)
+function pre_call_create_monday_task_on_new_order($subscription, $last_order)
 {
-    // error_log('renewal triggere');
-    //   $parentId = $subscription->get_parent()->id;
+    // Get the order associated with the subscription
+    $order = wc_get_order($subscription->get_parent_id());
+
     $parentId = @getParentId($order->get_id());
     $productName = current($order->get_items())->get_name();
-    $mondayItemId = create_monday_task_on_new_order($parentId, false, ['type' => 'renewal', 'product_name' => $productName, 'order_id' => $order->get_id(), 'parent_id' => $parentId, 'group_id' => 'new_group94739', 'created_at' => $order->get_date_created()->date('Y-m-d'), 'status' => $order->get_status(), 'in_db' => false]);
+    $mondayItemId = create_monday_task_on_new_order($parentId, false, ['type' => 'renewal', 'product_name' => $productName, 'order_id' => $last_order->get_id(), 'parent_id' => $parentId, 'group_id' => 'new_group94739', 'created_at' => $order->get_date_created()->date('Y-m-d'), 'status' => $order->get_status(), 'in_db' => false]);
     $parentOrder = wc_get_order($parentId);
     $entryId = get_woo_order_entry_id($parentOrder);
-    save_monday_record_id($entryId, $order->get_id(), $mondayItemId);
-    return;
+    save_monday_record_id($entryId,  $order->get_id(), $mondayItemId);
+    return $subscription;
 
     // if ($productName == 'Monthly Promotion') {
     //     create_micro_monday_task_on_new_order([
@@ -128,6 +133,7 @@ function pre_call_create_monday_task_on_new_order($order, $subscription)
     // }
     // error_log(print_r($order->get_items(), 1));
 }
+
 //Create new item on monday with lesser info.
 function create_micro_monday_task_on_new_order($orderDetail)
 {

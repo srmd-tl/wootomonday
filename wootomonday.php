@@ -15,4 +15,6 @@ add_action('woocommerce_order_status_changed', 'status_change_cb', 10, 4);
 add_action('gform_after_update_entry', 'update_item_in_monday_cb', 10, 3);
 add_action('woocommerce_thankyou', 'create_monday_task_on_new_order');
 //After WooCommerce Subscriptions Creates Renewal Order
-add_filter( 'wcs_renewal_order_created', 'pre_call_create_monday_task_on_new_order' ,10,2);
+// add_filter( 'wcs_renewal_order_created', 'pre_call_create_monday_task_on_new_order' ,40 ,2);
+
+add_action('woocommerce_subscription_payment_complete', 'pre_call_create_monday_task_on_new_order', 10, 2);
