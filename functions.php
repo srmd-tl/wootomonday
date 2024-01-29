@@ -68,7 +68,7 @@ function getOrderDetails($entryId, $orderId)
     $year = $entries['181'] ?? null;
     $lifeStage = $entries['13'] ?? null;
     $eligibleIncentives = $entries['154'];
-    $description = $entries['169'] ?? null;
+    $description = $entries['188']??$entries['169'] ?? null;
     foreach ($order->get_items() as $item_id => $item) {
         // Get the product name
         $product_name = $item['name'];
