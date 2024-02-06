@@ -68,7 +68,7 @@ function getOrderDetails($entryId, $orderId)
     $year = $entries['181'] ?? null;
     $lifeStage = $entries['13'] ?? null;
     $eligibleIncentives = $entries['154'];
-    $description = $entries['188']??$entries['169'] ?? null;
+    $description = $entries['188'] ?? $entries['169'] ?? $entries['162'] ?? $entries['150'] ?? null;
     foreach ($order->get_items() as $item_id => $item) {
         // Get the product name
         $product_name = $item['name'];
@@ -116,7 +116,7 @@ function pre_call_create_monday_task_on_new_order($subscription, $last_order)
 
     $parentId = @getParentId($order->get_id());
     $productName = current($order->get_items())->get_name();
-    $mondayItemId = create_monday_task_on_new_order($parentId, false, ['type' => 'renewal', 'product_name' => $productName, 'order_id' => $last_order->get_id(), 'parent_id' => $parentId, 'group_id' => 'new_group94739', 'created_at' => $order->get_date_created()->date('Y-m-d'), 'status' => $order->get_status(), 'in_db' => false]);
+    $mondayItemId = create_monday_task_on_new_order($parentId, false, ['type' => 'renewal', 'product_name' => $productName, 'order_id' => $last_order->get_id(), 'parent_id' => $parentId, 'group_id' => 'new_group94739', 'created_at' => $last_order->get_date_created()->date('Y-m-d'), 'status' => $last_order->get_status(), 'in_db' => false]);
     $parentOrder = wc_get_order($parentId);
     $entryId = get_woo_order_entry_id($parentOrder);
     save_monday_record_id($entryId,  $order->get_id(), $mondayItemId);
