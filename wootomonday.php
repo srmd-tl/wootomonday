@@ -14,6 +14,8 @@ add_action('woocommerce_order_status_changed', 'status_change_cb', 10, 4);
 // Hook into WooCommerce when a new order is created
 add_action('gform_after_update_entry', 'update_item_in_monday_cb', 10, 3);
 add_action('woocommerce_thankyou', 'create_monday_task_on_new_order');
+add_action('woocommerce_order_status_failed', 'create_monday_task_on_new_order');
+
 //After WooCommerce Subscriptions Creates Renewal Order
 // add_filter( 'wcs_renewal_order_created', 'pre_call_create_monday_task_on_new_order' ,40 ,2);
 
