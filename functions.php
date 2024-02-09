@@ -1,4 +1,6 @@
 <?php
+define('PLUGIN_PATH', plugin_dir_path(__FILE__) . 'debug.log');
+
 function status_change_cb($id, $status_transition_from, $status_transition_to, $that)
 {
     if ($that->get_meta('_subscription_renewal')) {
@@ -69,6 +71,7 @@ function getOrderDetails($entryId, $orderId)
     $lifeStage = $entries['13'] ?? null;
     $eligibleIncentives = $entries['154'];
     $description = $entries['188'] ?? $entries['169'] ?? $entries['162'] ?? $entries['150'] ?? null;
+
     foreach ($order->get_items() as $item_id => $item) {
         // Get the product name
         $product_name = $item['name'];
@@ -84,7 +87,8 @@ function getOrderDetails($entryId, $orderId)
         'color' => $color,
         'sex' => $sex,
         'register_name' => $registeredName,
-        'description' => $description,
+       // 'description' => $description,
+        'description' => '',
         'product_name' => count($order->get_items()) > 1 ? sprintf('%s,%s', $product['name'], $product_name) : $product['name'],
         'life_stage' => $lifeStage,
         'eligible_incentives' =>  '',
@@ -117,6 +121,7 @@ function pre_call_create_monday_task_on_new_order($subscription, $last_order)
     $parentId = @getParentId($order->get_id());
     $productName = current($order->get_items())->get_name();
     $mondayItemId = create_monday_task_on_new_order($parentId, false, ['type' => 'renewal', 'product_name' => $productName, 'order_id' => $last_order->get_id(), 'parent_id' => $parentId, 'group_id' => 'new_group94739', 'created_at' => $last_order->get_date_created()->date('Y-m-d'), 'status' => $last_order->get_status(), 'in_db' => false]);
+
     $parentOrder = wc_get_order($parentId);
     $entryId = get_woo_order_entry_id($parentOrder);
     save_monday_record_id($entryId,  $order->get_id(), $mondayItemId);
@@ -133,7 +138,6 @@ function pre_call_create_monday_task_on_new_order($subscription, $last_order)
     // }
     // error_log(print_r($order->get_items(), 1));
 }
-
 //Create new item on monday with lesser info.
 function create_micro_monday_task_on_new_order($orderDetail)
 {
@@ -179,18 +183,21 @@ function create_monday_task_on_new_order($order_id, $inDb = true, $optional = []
 {
     // Retrieve order details
     $order = wc_get_order($order_id);
+    error_log(print_r($order, 1), 3, PLUGIN_PATH);
     $entryId = get_woo_order_entry_id($order);
     $orderData = getOrderDetails($entryId, $order_id);
+    error_log("ORder Details", 3, PLUGIN_PATH);
+    error_log(print_r($orderData, 1), 3, PLUGIN_PATH);
     // Call a function to create a task in Monday.com using Monday API
     try {
         $mondayResponse = create_task_in_monday($orderData, $optional);
         if ($mondayResponse->error_code) {
-            error_log('Error in modnay entry');
-            error_log(print_r($mondayResponse));
+            error_log('Error in modnay entry', 3, PLUGIN_PATH);
+            error_log(print_r($mondayResponse, 1), 3, PLUGIN_PATH);
             return null;
         }
     } catch (\Exception $e) {
-        error_log(print_r($e->getMessage()));
+        error_log(print_r($e->getMessage(), 1), 3, PLUGIN_PATH);
     }
     if ($inDb) {
         save_monday_record_id($entryId, $order_id, $mondayResponse->data->create_item->id);
@@ -262,9 +269,15 @@ function create_task_in_monday($orderData, $optional = [])
 
     curl_close($curl);
 
+
     if ($err) {
-        echo "cURL Error #:" . $err;
+        error_log("Error in Monday.com API call", 3, PLUGIN_PATH);
+        error_log(print_r($err, 1), 3, PLUGIN_PATH);
+        return null;
     } else {
+        error_log("Success in Monday.com API call", 3, PLUGIN_PATH);
+        error_log(print_r($response, 1), 3, PLUGIN_PATH);
+        error_log(print_r(json_decode($response), 1), 3, PLUGIN_PATH);
         return json_decode($response);
     }
 }
