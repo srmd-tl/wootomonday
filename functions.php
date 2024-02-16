@@ -60,6 +60,9 @@ function get_monday_record_id_from_graphql($orderId)
 function getOrderDetails($entryId, $orderId)
 {
     $entries = GFAPI::get_entry($entryId);
+    error_log("Order Details");
+    error_log($entryId);
+    error_log(print_r($entries, 1), 3, PLUGIN_PATH);
     $order = wc_get_order($orderId);
     $product = getOrderItem($order);
     $registeredName = $entries['15'] ?? 'N/A';
@@ -71,12 +74,16 @@ function getOrderDetails($entryId, $orderId)
     $lifeStage = $entries['13'] ?? null;
     $eligibleIncentives = $entries['154'];
     $description = $entries['188'] ?? $entries['169'] ?? $entries['162'] ?? $entries['150'] ?? null;
+    $listedPrice = $entries['134'] ?? null;
+    $priceListingOption = $entries['135'] ?? null;
+    $formId = $entries['form_id'] ?? null;
 
     foreach ($order->get_items() as $item_id => $item) {
         // Get the product name
         $product_name = $item['name'];
     }
 
+    $description = str_replace(array("\r", "\n", "\t", "\\"), array('\r', '\n', '\t', '\\'), $description);
     return array(
         'order_number' => $order->get_order_number(),
         'customer_first_name' => $order->get_billing_first_name(),
@@ -87,7 +94,7 @@ function getOrderDetails($entryId, $orderId)
         'color' => $color,
         'sex' => $sex,
         'register_name' => $registeredName,
-       // 'description' => $description,
+        //        'description' => $description,
         'description' => '',
         'product_name' => count($order->get_items()) > 1 ? sprintf('%s,%s', $product['name'], $product_name) : $product['name'],
         'life_stage' => $lifeStage,
@@ -96,7 +103,10 @@ function getOrderDetails($entryId, $orderId)
         'entry_id' => $entryId,
         'status' => $order->get_status(),
         'created_at' => $order->get_date_created()->date('Y-m-d'),
-        'year' => $year
+        'year' => $year,
+        'listed_price' => $listedPrice,
+        'price_listing_option' => $priceListingOption,
+        'form_id' => $formId
 
     );
 }
@@ -183,7 +193,7 @@ function create_monday_task_on_new_order($order_id, $inDb = true, $optional = []
 {
     // Retrieve order details
     $order = wc_get_order($order_id);
-    error_log(print_r($order, 1), 3, PLUGIN_PATH);
+    //    error_log(print_r($order, 1), 3, PLUGIN_PATH);
     $entryId = get_woo_order_entry_id($order);
     $orderData = getOrderDetails($entryId, $order_id);
     error_log("ORder Details", 3, PLUGIN_PATH);
@@ -242,8 +252,14 @@ function create_task_in_monday($orderData, $optional = [])
     $year = $orderData['year'];
     $type = $optional['type'] ?? 'checkout';
     $groupId = $optional['group_id'] ?? 'topics';
-    if ('checkout' == $type) {
-        $query = "{\n  \"query\": \"mutation {create_item (board_id: 1158941214, group_id: \\\"" . $groupId . "\\\", item_name: \\\"" . $orderId . "\\\", column_values: \\\"{\\\\\\\"dup__of_reg_name7\\\\\\\":\\\\\\\"" . $lifeStage . "\\\\\\\",\\\\\\\"long_text00\\\\\\\":\\\\\\\"" . $description . "\\\\\\\",\\\\\\\"status_1\\\\\\\":\\\\\\\"" . $type . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerFirstName . "\\\\\\\",\\\\\\\"text1\\\\\\\":\\\\\\\"" . $customerLastName . "\\\\\\\",\\\\\\\"date4\\\\\\\":\\\\\\\"" . $createdAt . "\\\\\\\",\\\\\\\"status\\\\\\\":\\\\\\\"" . $status . "\\\\\\\",\\\\\\\"text0\\\\\\\":\\\\\\\"" . $productName . "\\\\\\\",\\\\\\\"long_text8\\\\\\\":\\\\\\\"" . $regName . "\\\\\\\",\\\\\\\"dup__of_reg_name3\\\\\\\":\\\\\\\"" . $year . "\\\\\\\",\\\\\\\"dup__of_birth_year\\\\\\\":\\\\\\\"" . $color . "\\\\\\\",\\\\\\\"dup__of_color\\\\\\\":\\\\\\\"" . $sex . "\\\\\\\",\\\\\\\"dup__of_reg_name\\\\\\\":\\\\\\\"" . $sire . "\\\\\\\",\\\\\\\"dup__of_sire\\\\\\\":\\\\\\\"" . $dam . "\\\\\\\",\\\\\\\"long_text\\\\\\\":\\\\\\\"" . $eligibleIncentives . "\\\\\\\",\\\\\\\"email\\\\\\\":{\\\\\\\"email\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\"}}\\\") {id}}\"\n}\n";
+    $listedPrice = $orderData['listed_price'] ?? null;
+    $priceListingOption = $orderData['price_listing_option'] ?? null;
+    $formId = $orderData['form_id'] ?? null;
+    error_log('form Id' . $formId, 3, PLUGIN_PATH);
+    if ($formId != '3' && 'checkout' == $type) {
+        $query = "{\n  \"query\": \"mutation {create_item (board_id: 1158941214, group_id: \\\"" . $groupId . "\\\", item_name: \\\"" . $orderId . "\\\", column_values: \\\"{\\\\\\\"dup__of_reg_name7\\\\\\\":\\\\\\\"" . $lifeStage . "\\\\\\\",\\\\\\\"long_text00\\\\\\\":\\\\\\\"" . $description . "\\\\\\\",\\\\\\\"long_text09\\\\\\\":\\\\\\\"" . $priceListingOption . "\\\\\\\",\\\\\\\"dup__of_dam\\\\\\\":\\\\\\\"" . $listedPrice . "\\\\\\\",\\\\\\\"status_1\\\\\\\":\\\\\\\"" . $type . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerFirstName . "\\\\\\\",\\\\\\\"text1\\\\\\\":\\\\\\\"" . $customerLastName . "\\\\\\\",\\\\\\\"date4\\\\\\\":\\\\\\\"" . $createdAt . "\\\\\\\",\\\\\\\"status\\\\\\\":\\\\\\\"" . $status . "\\\\\\\",\\\\\\\"text0\\\\\\\":\\\\\\\"" . $productName . "\\\\\\\",\\\\\\\"long_text8\\\\\\\":\\\\\\\"" . $regName . "\\\\\\\",\\\\\\\"dup__of_reg_name3\\\\\\\":\\\\\\\"" . $year . "\\\\\\\",\\\\\\\"dup__of_birth_year\\\\\\\":\\\\\\\"" . $color . "\\\\\\\",\\\\\\\"dup__of_color\\\\\\\":\\\\\\\"" . $sex . "\\\\\\\",\\\\\\\"dup__of_reg_name\\\\\\\":\\\\\\\"" . $sire . "\\\\\\\",\\\\\\\"dup__of_sire\\\\\\\":\\\\\\\"" . $dam . "\\\\\\\",\\\\\\\"long_text\\\\\\\":\\\\\\\"" . $eligibleIncentives . "\\\\\\\",\\\\\\\"email\\\\\\\":{\\\\\\\"email\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\"}}\\\") {id}}\"\n}\n";
+    } else if ($formId == '3') {
+        $query = "{\n  \"query\": \"mutation {create_item (board_id: 1158941214, group_id: \\\"" . $groupId . "\\\", item_name: \\\"" . $orderId . "\\\", column_values: \\\"{\\\\\\\"dup__of_reg_name7\\\\\\\":\\\\\\\"" . $lifeStage . "\\\\\\\",\\\\\\\"long_text00\\\\\\\":\\\\\\\"" . $description . "\\\\\\\",\\\\\\\"long_text09\\\\\\\":\\\\\\\"" . $priceListingOption . "\\\\\\\",\\\\\\\"dup__of_dam\\\\\\\":\\\\\\\"" . $listedPrice . "\\\\\\\",\\\\\\\"status_1\\\\\\\":\\\\\\\"" . $type . "\\\\\\\",\\\\\\\"date4\\\\\\\":\\\\\\\"" . $createdAt . "\\\\\\\",\\\\\\\"status\\\\\\\":\\\\\\\"" . $status . "\\\\\\\",\\\\\\\"text0\\\\\\\":\\\\\\\"" . $productName . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerFirstName . "\\\\\\\",\\\\\\\"text1\\\\\\\":\\\\\\\"" . $customerLastName . "\\\\\\\",\\\\\\\"email\\\\\\\":{\\\\\\\"email\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\"}}\\\") {id}}\"\n}\n";
     } else {
         $query = "{\n  \"query\": \"mutation {create_item (board_id: 1158941214, group_id: \\\"" . $groupId . "\\\", item_name: \\\"" . $orderId . "\\\", column_values: \\\"{\\\\\\\"text8\\\\\\\":\\\\\\\"" . $checkoutId . "\\\\\\\",\\\\\\\"dup__of_reg_name7\\\\\\\":\\\\\\\"" . $lifeStage . "\\\\\\\",\\\\\\\"long_text00\\\\\\\":\\\\\\\"" . $description . "\\\\\\\",\\\\\\\"status_1\\\\\\\":\\\\\\\"" . $type . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerFirstName . "\\\\\\\",\\\\\\\"text1\\\\\\\":\\\\\\\"" . $customerLastName . "\\\\\\\",\\\\\\\"date4\\\\\\\":\\\\\\\"" . $createdAt . "\\\\\\\",\\\\\\\"status\\\\\\\":\\\\\\\"" . $status . "\\\\\\\",\\\\\\\"text0\\\\\\\":\\\\\\\"" . $productName . "\\\\\\\",\\\\\\\"long_text8\\\\\\\":\\\\\\\"" . $regName . "\\\\\\\",\\\\\\\"dup__of_reg_name3\\\\\\\":\\\\\\\"" . $year . "\\\\\\\",\\\\\\\"dup__of_birth_year\\\\\\\":\\\\\\\"" . $color . "\\\\\\\",\\\\\\\"dup__of_color\\\\\\\":\\\\\\\"" . $sex . "\\\\\\\",\\\\\\\"dup__of_reg_name\\\\\\\":\\\\\\\"" . $sire . "\\\\\\\",\\\\\\\"dup__of_sire\\\\\\\":\\\\\\\"" . $dam . "\\\\\\\",\\\\\\\"long_text\\\\\\\":\\\\\\\"" . $eligibleIncentives . "\\\\\\\",\\\\\\\"email\\\\\\\":{\\\\\\\"email\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\"}}\\\") {id}}\"\n}\n";
     }
@@ -300,6 +316,17 @@ function update_item_in_monday($itemId, $orderData)
     $status = $orderData['status'];
     $year = $orderData['year'];
     $createdAt = $orderData['created_at'];
+    $listedPrice = $orderData['listed_price'] ?? null;
+    $priceListingOption = $orderData['price_listing_option'] ?? null;
+    $formId = $orderData['form_id'] ?? null;
+    error_log('form Id' . $formId, 3, PLUGIN_PATH);
+
+    if ((int)$formId == 3) {
+        error_log('form Id', 3, PLUGIN_PATH);
+        $query = "{\n  \"query\": \"mutation {change_multiple_column_values (item_id:" . $itemId . ",board_id: 1158941214, column_values: \\\"{\\\\\\\"dup__of_reg_name7\\\\\\\":\\\\\\\"" . $lifeStage . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerFirstName . "\\\\\\\",\\\\\\\"text1\\\\\\\":\\\\\\\"" . $customerLastName . "\\\\\\\",\\\\\\\"date4\\\\\\\":\\\\\\\"" . $createdAt . "\\\\\\\",\\\\\\\"status\\\\\\\":\\\\\\\"" . $status . "\\\\\\\",\\\\\\\"text0\\\\\\\":\\\\\\\"" . $productName . "\\\\\\\",\\\\\\\"email\\\\\\\":{\\\\\\\"email\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\"}}\\\") {id}}\"\n}\n";
+    } else {
+        $query = "{\n  \"query\": \"mutation {change_multiple_column_values (item_id:" . $itemId . ",board_id: 1158941214, column_values: \\\"{\\\\\\\"dup__of_reg_name7\\\\\\\":\\\\\\\"" . $lifeStage . "\\\\\\\",\\\\\\\"long_text00\\\\\\\":\\\\\\\"" . $description . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerFirstName . "\\\\\\\",\\\\\\\"text1\\\\\\\":\\\\\\\"" . $customerLastName . "\\\\\\\",\\\\\\\"date4\\\\\\\":\\\\\\\"" . $createdAt . "\\\\\\\",\\\\\\\"status\\\\\\\":\\\\\\\"" . $status . "\\\\\\\",\\\\\\\"text0\\\\\\\":\\\\\\\"" . $productName . "\\\\\\\",\\\\\\\"long_text8\\\\\\\":\\\\\\\"" . $regName . "\\\\\\\",\\\\\\\"dup__of_reg_name3\\\\\\\":\\\\\\\"" . $year . "\\\\\\\",\\\\\\\"dup__of_birth_year\\\\\\\":\\\\\\\"" . $color . "\\\\\\\",\\\\\\\"dup__of_color\\\\\\\":\\\\\\\"" . $sex . "\\\\\\\",\\\\\\\"dup__of_reg_name\\\\\\\":\\\\\\\"" . $sire . "\\\\\\\",\\\\\\\"dup__of_sire\\\\\\\":\\\\\\\"" . $dam . "\\\\\\\",\\\\\\\"long_text\\\\\\\":\\\\\\\"" . $eligibleIncentives . "\\\\\\\",\\\\\\\"email\\\\\\\":{\\\\\\\"email\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\"}}\\\") {id}}\"\n}\n";
+    }
 
 
     $curl = curl_init();
@@ -312,7 +339,7 @@ function update_item_in_monday($itemId, $orderData)
         CURLOPT_TIMEOUT => 30,
         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
         CURLOPT_CUSTOMREQUEST => "POST",
-        CURLOPT_POSTFIELDS => "{\n  \"query\": \"mutation {change_multiple_column_values (item_id:" . $itemId . ",board_id: 1158941214, column_values: \\\"{\\\\\\\"dup__of_reg_name7\\\\\\\":\\\\\\\"" . $lifeStage . "\\\\\\\",\\\\\\\"long_text00\\\\\\\":\\\\\\\"" . $description . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerFirstName . "\\\\\\\",\\\\\\\"text1\\\\\\\":\\\\\\\"" . $customerLastName . "\\\\\\\",\\\\\\\"date4\\\\\\\":\\\\\\\"" . $createdAt . "\\\\\\\",\\\\\\\"status\\\\\\\":\\\\\\\"" . $status . "\\\\\\\",\\\\\\\"text0\\\\\\\":\\\\\\\"" . $productName . "\\\\\\\",\\\\\\\"long_text8\\\\\\\":\\\\\\\"" . $regName . "\\\\\\\",\\\\\\\"dup__of_reg_name3\\\\\\\":\\\\\\\"" . $year . "\\\\\\\",\\\\\\\"dup__of_birth_year\\\\\\\":\\\\\\\"" . $color . "\\\\\\\",\\\\\\\"dup__of_color\\\\\\\":\\\\\\\"" . $sex . "\\\\\\\",\\\\\\\"dup__of_reg_name\\\\\\\":\\\\\\\"" . $sire . "\\\\\\\",\\\\\\\"dup__of_sire\\\\\\\":\\\\\\\"" . $dam . "\\\\\\\",\\\\\\\"long_text\\\\\\\":\\\\\\\"" . $eligibleIncentives . "\\\\\\\",\\\\\\\"email\\\\\\\":{\\\\\\\"email\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\",\\\\\\\"text\\\\\\\":\\\\\\\"" . $customerEmail . "\\\\\\\"}}\\\") {id}}\"\n}\n",
+        CURLOPT_POSTFIELDS => $query,
         CURLOPT_HTTPHEADER => [
             "API-Version: 2023-10",
             "Authorization: eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjMwMzk4ODU0MCwiYWFpIjoxMSwidWlkIjo1MTExNjAwMiwiaWFkIjoiMjAyMy0xMi0yMFQxMToyODoyNS43OTdaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6Nzg4ODgyOSwicmduIjoidXNlMSJ9.pC8ks0oxDJDykIGkb7s5-y6KyIKfcArV9PR2kytwTZ8",
@@ -326,8 +353,13 @@ function update_item_in_monday($itemId, $orderData)
     curl_close($curl);
 
     if ($err) {
+        error_log("Error in Monday.com API call", 3, PLUGIN_PATH);
+        error_log(print_r($err, 1), 3, PLUGIN_PATH);
         return "cURL Error #:" . $err;
     } else {
+        error_log("Success in Monday.com API call", 3, PLUGIN_PATH);
+        error_log(print_r($response, 1), 3, PLUGIN_PATH);
+        error_log(print_r(json_decode($response), 1), 3, PLUGIN_PATH);
         return json_decode($response, 1);
     }
 }
