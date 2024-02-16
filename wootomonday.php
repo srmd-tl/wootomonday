@@ -19,7 +19,7 @@ add_action('woocommerce_order_status_failed', 'create_monday_task_on_new_order')
 //After WooCommerce Subscriptions Creates Renewal Order
 //add_filter( 'wcs_renewal_order_created', 'pre_call_create_monday_task_on_new_order' ,30,2);
 
-add_action('woocommerce_subscription_renewal_payment_complete', 'pre_call_create_monday_task_on_new_order', 10,2);
+add_action('woocommerce_subscription_renewal_payment_complete', 'pre_call_create_monday_task_on_new_order', 10, 2);
 
 
 add_action('manage_shop_order_posts_custom_column', 'wootomonday_force_push', 25, 2);
@@ -62,6 +62,11 @@ function handle_wootomonday_force_push()
             if ($order && is_a($order, 'WC_Order')) {
                 if (wcs_order_contains_renewal($order)) {
                     $related_subscriptions = wcs_get_subscriptions_for_renewal_order($order);
+                    if ($related_subscriptions) {
+                        $related_subscriptions = current($related_subscriptions);
+                    }
+                    error_log("related subs");
+                    error_log(print_r($related_subscriptions, 1));
                     pre_call_create_monday_task_on_new_order($related_subscriptions, $order);
                 } else {
                     create_monday_task_on_new_order($order_id);
